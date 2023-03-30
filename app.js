@@ -4,7 +4,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const encrypt = require("mongoose-encryption");
+// const encrypt = require("mongoose-encryption");
+const md5 = require("md5");
 
 /* ------------ Use the crypto module to generate encKey and sigKey --------------  */
 // const crypto = require('crypto');
@@ -21,8 +22,8 @@ const encrypt = require("mongoose-encryption");
 
 /*--------- Use dotenv module to save and access environment values ------------*/
 
-const encKey = process.env.ENCRYPTION_KEY;
-const sigKey = process.env.SIGNING_KEY;
+// const encKey = process.env.ENCRYPTION_KEY;
+// const sigKey = process.env.SIGNING_KEY;
 
 
 const app = express();
@@ -44,11 +45,11 @@ const userSchema = mongoose.Schema({
     password: String
 });
 
-userSchema.plugin(encrypt, {
-    encryptionKey: encKey,
-    signingKey: sigKey,
-    encryptedFields: ["password"]
-});
+// userSchema.plugin(encrypt, {
+//     encryptionKey: encKey,
+//     signingKey: sigKey,
+//     encryptedFields: ["password"]
+// });
 
 const User = new mongoose.model("User", userSchema);
 
@@ -71,7 +72,7 @@ app.get("/logout", (req, res) => {
 app.post("/register", (req, res) => {
     const newUser = new User({
         email: req.body.username,
-        password: req.body.password
+        password: md5(req.body.password)
     });
 
     newUser.save().then(success => {
@@ -81,7 +82,7 @@ app.post("/register", (req, res) => {
 
 app.post("/login", (req, res) => {
     const username = req.body.username;
-    const password = req.body.password;
+    const password = md5(req.body.password);
     User.findOne({email: username}).then(success => {
         if (success) {
             if (success.password === password) {
