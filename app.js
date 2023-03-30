@@ -4,27 +4,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-// const encrypt = require("mongoose-encryption");
-const md5 = require("md5");
-
-/* ------------ Use the crypto module to generate encKey and sigKey --------------  */
-// const crypto = require('crypto');
-
-// const generateKey = (bytes) => {
-//   return crypto.randomBytes(bytes).toString('base64');
-// };
-
-// const encKey = generateKey(32);
-// const sigKey = generateKey(64);
-
-// console.log(encKey);
-// console.log(sigKey);
-
-/*--------- Use dotenv module to save and access environment values ------------*/
-
-// const encKey = process.env.ENCRYPTION_KEY;
-// const sigKey = process.env.SIGNING_KEY;
-
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 
@@ -45,12 +26,6 @@ const userSchema = mongoose.Schema({
     password: String
 });
 
-// userSchema.plugin(encrypt, {
-//     encryptionKey: encKey,
-//     signingKey: sigKey,
-//     encryptedFields: ["password"]
-// });
-
 const User = new mongoose.model("User", userSchema);
 
 app.get("/", (req, res) => {
@@ -70,28 +45,34 @@ app.get("/logout", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-    const newUser = new User({
-        email: req.body.username,
-        password: md5(req.body.password)
+    const username = req.body.username;
+    const password = req.body.password;
+    bcrypt.hash(password, saltRounds).then(hash => {
+        const newUser = new User({
+            email: username,
+            password: hash
+        });
+    
+        newUser.save().then(success => {
+            res.render("secrets");
+        }, failure => console.log(failure));
     });
-
-    newUser.save().then(success => {
-        res.render("secrets");
-    }, failure => console.log(failure));
 });
 
 app.post("/login", (req, res) => {
     const username = req.body.username;
-    const password = md5(req.body.password);
+    const password = req.body.password;
     User.findOne({email: username}).then(success => {
         if (success) {
-            if (success.password === password) {
-                res.render("secrets");
-            } else {
-                console.log("password is invalid!");
-            }    
+            bcrypt.compare(password, success.password).then(result => {
+                if (result) {
+                    res.render("secrets");
+                } else {
+                    console.log("password is invalid!");
+                }
+            });   
         } else {
-            console.log("No such a user!");
+            console.log("No such a username!");
         }
     }, failure => console.log(failure));
 });
