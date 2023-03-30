@@ -31,8 +31,13 @@ app.use(express.static("public"));
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({extended: true}));
 
-
-mongoose.connect("mongodb+srv://bxljoy:198538Bl@cluster0.djq235y.mongodb.net/userDB?retryWrites=true&w=majority");
+const url1 = "mongodb+srv://";
+const url2 = "@cluster0.djq235y.mongodb.net/";
+const url3 = "?retryWrites=true&w=majority";
+const userPassword = process.env.MONGODB_ATLAS_USER + ":" + process.env.MONGODB_ATLAS_PASSWORD;
+const mongodbName = process.env.MONGODB_NAME;
+const url = url1 + userPassword + url2 + mongodbName + url3;
+mongoose.connect(url);
 
 const userSchema = mongoose.Schema({
     email: String,
