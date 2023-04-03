@@ -4,14 +4,24 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const bcrypt = require("bcrypt");
-const saltRounds = 10;
+const session = require("express-session");
+const passport = require("passport");
+const passportLocalMongoose = require("passport-local-mongoose");
 
 const app = express();
 
 app.use(express.static("public"));
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({extended: true}));
+
+app.use(session({
+    secret: "Our little secret.",
+    resave: false,
+    saveUninitialized: false
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 const url1 = "mongodb+srv://";
 const url2 = "@cluster0.djq235y.mongodb.net/";
@@ -21,12 +31,18 @@ const mongodbName = process.env.MONGODB_NAME;
 const url = url1 + userPassword + url2 + mongodbName + url3;
 mongoose.connect(url);
 
-const userSchema = mongoose.Schema({
-    email: String,
-    password: String
-});
+const userSchema = mongoose.Schema({});
+
+userSchema.plugin(passportLocalMongoose);
 
 const User = new mongoose.model("User", userSchema);
+
+// CHANGE: USE "createStrategy" INSTEAD OF "authenticate"
+passport.use(User.createStrategy());
+
+// use static serialize and deserialize of model for passport session support
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
 app.get("/", (req, res) => {
     res.render("home");
@@ -44,39 +60,74 @@ app.get("/logout", (req, res) => {
     res.render("home");
 });
 
+app.get("/secrets", (req, res) => {
+    if (req.isAuthenticated()) {
+        res.render("secrets");
+    } else {
+        res.redirect("/login");
+    }  
+});
+
+// app.post("/register", (req, res) => {
+//     const username = req.body.username;
+//     const password = req.body.password;
+
+//     User.register({username: username}, password, function(err, user) {
+//         if (err) {
+//             console.log(err);
+//             res.render("/register");
+//         } else {
+//             passport.authenticate("local")(req, res, function() {
+//                 res.redirect("/secrets");
+//             });
+//         }
+//       });
+// });
+
+// app.post("/login", (req, res) => {
+//     const username = req.body.username;
+//     const password = req.body.password;
+
+//     const user = new User({
+//         username: username,
+//         password: password
+//     });   
+
+//     req.login(user, function(err) {
+//         if (err) {
+//             console.log(err);
+//         } else {
+//             passport.authenticate("local")(req, res, function() {
+//                 res.redirect("/secrets");
+//             });
+//         }
+//     });
+// });
+
 app.post("/register", (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
-    bcrypt.hash(password, saltRounds).then(hash => {
-        const newUser = new User({
-            email: username,
-            password: hash
-        });
-    
-        newUser.save().then(success => {
-            res.render("secrets");
-        }, failure => console.log(failure));
-    });
-});
 
-app.post("/login", (req, res) => {
-    const username = req.body.username;
-    const password = req.body.password;
-    User.findOne({email: username}).then(success => {
-        if (success) {
-            bcrypt.compare(password, success.password).then(result => {
-                if (result) {
-                    res.render("secrets");
-                } else {
-                    console.log("password is invalid!");
-                }
-            });   
+    User.register({username: username}, password, function(err, user) {
+        if (err) {
+            console.log(err);
+            res.redirect("/register");
         } else {
-            console.log("No such a username!");
+            res.redirect("/secrets");
         }
-    }, failure => console.log(failure));
+      });
 });
 
+// app.post("/login", passport.authenticate('local', {
+//     successRedirect: "/secrets",
+//     failureRedirect: "/login",
+// }));
+
+app.post('/login',
+  passport.authenticate('local', { failureRedirect: '/login', failureMessage: true }),
+  function(req, res) {
+    res.redirect('/secrets');
+  });
 
 app.listen(3000, function() {
     console.log("Server started on port 3000.");
